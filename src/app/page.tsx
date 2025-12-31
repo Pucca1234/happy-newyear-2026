@@ -23,6 +23,7 @@ type BlessingBubble = {
   y: number;
   hue: number;
   tilt: number;
+  isNew: boolean;
 };
 
 type ConfettiPiece = {
@@ -63,15 +64,24 @@ export default function Home() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [showOverlay, setShowOverlay] = useState(false);
   const [hasCelebrated, setHasCelebrated] = useState(false);
+  const [showHappyText, setShowHappyText] = useState(false);
+  const [presenceEnabled, setPresenceEnabled] = useState(false);
+  const [presenceCount, setPresenceCount] = useState<number | null>(null);
 
   const hasConfig = useMemo(
     () => Boolean(supabaseConfig.url && supabaseConfig.anonKey),
     []
   );
-  const knownIds = useRef(new Set<string>());
   const timeouts = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const initialSpawnTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const randomSpawnTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const spawnLoopStarted = useRef(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef({ width: 0, height: 0 });
+  const blessingsRef = useRef<BlessingBubble[]>([]);
+  const blessingPoolRef = useRef<BlessingRow[]>([]);
+  const blessingPoolIdsRef = useRef(new Set<string>());
+  const presenceKeyRef = useRef<string | null>(null);
 
   const confettiPieces = useMemo<ConfettiPiece[]>(() => {
     return Array.from({ length: 26 }, (_, index) => ({
@@ -88,6 +98,7 @@ export default function Home() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const testValue = Number(params.get("test"));
+    setPresenceEnabled(params.get("presence") === "1");
     if (Number.isFinite(testValue) && testValue > 0) {
       setTargetTime(Date.now() + testValue * 10000);
       setHasCelebrated(false);
@@ -140,6 +151,18 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    blessingsRef.current = blessings;
+  }, [blessings]);
+
+  const removeBubble = useCallback((bubbleId: string) => {
+    setBlessings((prev) => {
+      const next = prev.filter((item) => item.id !== bubbleId);
+      blessingsRef.current = next;
+      return next;
+    });
+  }, []);
+
   const pickBubblePosition = useCallback(() => {
     const { width, height } = viewportRef.current;
     const size = Math.min(width, height);
@@ -174,10 +197,10 @@ export default function Home() {
   }, []);
 
   const createBubble = useCallback(
-    (row: BlessingRow): BlessingBubble => {
+    (row: BlessingRow, isNew: boolean): BlessingBubble => {
       const { x, y } = pickBubblePosition();
       return {
-        id: row.id,
+        id: `${row.id}-${Date.now()}-${Math.round(Math.random() * 1000000)}`,
         name: row.name?.trim() || null,
         text: row.text,
         created_at: row.created_at,
@@ -185,28 +208,87 @@ export default function Home() {
         y,
         hue: Math.round(randomBetween(15, 320)),
         tilt: Math.round(randomBetween(-6, 6)),
+        isNew,
       };
     },
     [pickBubblePosition]
   );
 
   const addBlessing = useCallback(
-    (row: BlessingRow) => {
-      if (knownIds.current.has(row.id)) {
-        return;
+    (row: BlessingRow, isNew: boolean) => {
+      if (blessingsRef.current.length >= 10) {
+        return false;
       }
-      knownIds.current.add(row.id);
-      const bubble = createBubble(row);
-      setBlessings((prev) => [...prev, bubble]);
+      const bubble = createBubble(row, isNew);
+      setBlessings((prev) => {
+        const next = [...prev, bubble];
+        blessingsRef.current = next;
+        return next;
+      });
       const timeout = setTimeout(() => {
-        setBlessings((prev) => prev.filter((item) => item.id !== row.id));
-        knownIds.current.delete(row.id);
-        timeouts.current.delete(row.id);
-      }, 5000);
-      timeouts.current.set(row.id, timeout);
+        removeBubble(bubble.id);
+        timeouts.current.delete(bubble.id);
+      }, 10000);
+      timeouts.current.set(bubble.id, timeout);
+      return true;
     },
-    [createBubble]
+    [createBubble, removeBubble]
   );
+
+  const addToPool = useCallback((rows: BlessingRow[]) => {
+    if (!rows.length) {
+      return;
+    }
+    const pool = [...blessingPoolRef.current];
+    rows.forEach((row) => {
+      if (!blessingPoolIdsRef.current.has(row.id)) {
+        blessingPoolIdsRef.current.add(row.id);
+        pool.push(row);
+      }
+    });
+    blessingPoolRef.current = pool;
+  }, []);
+
+  const spawnInitialBlessings = useCallback(
+    (rows: BlessingRow[]) => {
+      let index = 0;
+
+      const spawnNext = () => {
+        if (index >= rows.length) {
+          return;
+        }
+        const spawned = addBlessing(rows[index], false);
+        if (spawned) {
+          index += 1;
+        }
+        const delay = randomBetween(250, 350);
+        initialSpawnTimeout.current = setTimeout(spawnNext, delay);
+      };
+
+      spawnNext();
+    },
+    [addBlessing]
+  );
+
+  const scheduleRandomSpawn = useCallback(() => {
+    const delay = randomBetween(1400, 2200);
+    randomSpawnTimeout.current = setTimeout(() => {
+      const pool = blessingPoolRef.current;
+      if (pool.length > 0 && blessingsRef.current.length < 10) {
+        const row = pool[Math.floor(Math.random() * pool.length)];
+        addBlessing(row, false);
+      }
+      scheduleRandomSpawn();
+    }, delay);
+  }, [addBlessing]);
+
+  const startRandomSpawner = useCallback(() => {
+    if (spawnLoopStarted.current) {
+      return;
+    }
+    spawnLoopStarted.current = true;
+    scheduleRandomSpawn();
+  }, [scheduleRandomSpawn]);
 
   const runConfetti = useCallback(() => {
     const duration = 2000;
@@ -245,6 +327,14 @@ export default function Home() {
   }, [remaining, hasCelebrated, runConfetti]);
 
   useEffect(() => {
+    if (remaining > 0 || showHappyText) {
+      return;
+    }
+    const timer = setTimeout(() => setShowHappyText(true), 10000);
+    return () => clearTimeout(timer);
+  }, [remaining, showHappyText]);
+
+  useEffect(() => {
     if (!hasConfig) {
       setStatusMessage("Supabase 설정이 필요해요. 환경변수를 확인해 주세요.");
       return;
@@ -265,7 +355,11 @@ export default function Home() {
         return;
       }
 
-      data?.forEach(addBlessing);
+      if (data) {
+        addToPool(data);
+        spawnInitialBlessings(data);
+        startRandomSpawner();
+      }
     };
 
     loadBlessings();
@@ -282,7 +376,8 @@ export default function Home() {
         },
         (payload) => {
           const row = payload.new as BlessingRow;
-          addBlessing(row);
+          addToPool([row]);
+          addBlessing(row, true);
         }
       )
       .subscribe();
@@ -290,14 +385,58 @@ export default function Home() {
     return () => {
       channel.unsubscribe();
     };
-  }, [addBlessing, hasConfig]);
+  }, [addBlessing, addToPool, hasConfig, spawnInitialBlessings, startRandomSpawner]);
 
   useEffect(() => {
     return () => {
       timeouts.current.forEach((timeout) => clearTimeout(timeout));
       timeouts.current.clear();
+      if (initialSpawnTimeout.current) {
+        clearTimeout(initialSpawnTimeout.current);
+      }
+      if (randomSpawnTimeout.current) {
+        clearTimeout(randomSpawnTimeout.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (!presenceEnabled || !hasConfig) {
+      return;
+    }
+
+    if (!presenceKeyRef.current) {
+      presenceKeyRef.current =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `guest-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    const channel = supabase.channel("presence-happy-newyear-2026", {
+      config: {
+        presence: { key: presenceKeyRef.current },
+      },
+    });
+
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState();
+      const count = Object.values(state).reduce(
+        (acc, presences) => acc + presences.length,
+        0
+      );
+      setPresenceCount(count);
+    });
+
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        channel.track({ online_at: new Date().toISOString() });
+      }
+    });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [hasConfig, presenceEnabled]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -342,13 +481,13 @@ export default function Home() {
     setTimeout(() => setCooldown(false), 3000);
   };
 
-  const remainingSeconds = Math.ceil(remaining / 1000);
+  const remainingSeconds = Math.floor(remaining / 1000);
   const phaseClass =
-    remainingSeconds <= 10
+    remainingSeconds < 10
       ? "phase-10"
-      : remainingSeconds <= 30
+      : remainingSeconds < 30
         ? "phase-30"
-        : remainingSeconds <= 60
+        : remainingSeconds < 60
           ? "phase-60"
           : "phase-normal";
   const isNewYear = remaining === 0;
@@ -377,11 +516,18 @@ export default function Home() {
         </div>
       )}
 
+      {presenceEnabled && presenceCount !== null && (
+        <div className="presence-pill">현재 접속자 {presenceCount}명</div>
+      )}
+
       <div className="main-content relative mx-auto flex w-full max-w-6xl flex-col items-center px-6 pt-16 text-center sm:px-10">
-        <span className="rounded-full border border-white/60 bg-white/70 px-4 py-1 text-sm font-semibold text-slate-700 shadow-sm">
+        <span className="title-pill rounded-full border border-white/60 bg-white/70 px-4 py-1 text-sm font-semibold text-slate-700 shadow-sm">
           Happy New Year 2026
         </span>
-        <h1 className="mt-6 text-2xl font-semibold text-slate-700">
+        <h1
+          className="static-text mt-6 text-2xl font-semibold text-slate-700"
+          style={{ "--static-color": "#334155" } as CSSProperties}
+        >
           {isNewYear ? (
             <>
               새해 복 많이 받으세요! {"\u{1F389}"}
@@ -395,18 +541,21 @@ export default function Home() {
         </h1>
         <div className="countdown-layer">
           <div className="countdown mt-6 text-slate-900">
-            {formatRemaining(remaining)}
+            {showHappyText ? "Happy New Year 2026" : formatRemaining(remaining)}
           </div>
         </div>
-        <p className="mt-3 max-w-2xl text-base text-slate-600">
-          보내진 덕담은 화면 곳곳에 말풍선으로 떠오르며 5초 뒤 사라집니다.
+        <p
+          className="static-text mt-3 max-w-2xl text-base text-slate-600"
+          style={{ "--static-color": "#475569" } as CSSProperties}
+        >
+          보내진 덕담은 화면 곳곳에 말풍선으로 떠오르며 10초 뒤 사라집니다.
         </p>
 
         <div className="bubble-layer pointer-events-none absolute inset-0">
           {blessings.map((bubble) => (
             <div
               key={bubble.id}
-              className="bubble"
+              className={`bubble${bubble.isNew ? " bubble-new" : ""}`}
               style={
                 {
                   left: `${bubble.x}%`,

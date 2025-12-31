@@ -99,6 +99,17 @@ body {
   --vignette-opacity: 0.35;
 }
 
+.title-pill {
+  color: #2c2336;
+}
+
+.static-text {
+  color: var(--static-color, currentColor) !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  opacity: 1 !important;
+}
+
 .main-content {
   min-height: 100dvh;
   padding-bottom: calc(var(--panel-height, 190px) + env(safe-area-inset-bottom) + 24px);
@@ -142,8 +153,12 @@ body {
   border: 1px solid rgba(32, 25, 56, 0.08);
   box-shadow: 0 18px 40px rgba(22, 18, 40, 0.18);
   backdrop-filter: blur(8px);
-  animation: bubbleFloat 5s ease-in-out forwards;
+  animation: bubbleFloat 10s ease-in-out forwards;
   transform-origin: center;
+}
+
+.bubble-new {
+  animation: bubbleFloatNew 10s ease-in-out forwards;
 }
 
 .bubble-name {
@@ -178,6 +193,22 @@ body {
   100% {
     opacity: 0;
     transform: translateY(-40px) scale(1.05) rotate(calc(var(--tilt, -4deg) + 3deg));
+  }
+}
+
+@keyframes bubbleFloatNew {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(1.12) rotate(var(--tilt, -4deg));
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0px) scale(1.05) rotate(var(--tilt, -4deg));
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.92)
+      rotate(calc(var(--tilt, -4deg) + 3deg));
   }
 }
 
@@ -291,6 +322,20 @@ body {
   bottom: 0;
   padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
   padding-top: 12px;
+}
+
+.presence-pill {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  z-index: 50;
+  border-radius: 999px;
+  background: rgba(20, 16, 40, 0.72);
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #f8f5ff;
 }
 
 .only-mobile {
