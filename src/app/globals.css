@@ -1,0 +1,315 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fff6ea;
+  --foreground: #1c1b1f;
+  --panel: rgba(255, 255, 255, 0.9);
+  --panel-border: rgba(30, 25, 44, 0.12);
+  --shadow: 0 18px 50px rgba(34, 30, 64, 0.12);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+
+.app-shell {
+  position: relative;
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+  background: radial-gradient(circle at 15% 15%, #ffe2b3 0%, transparent 55%),
+    radial-gradient(circle at 85% 10%, #c7f0ff 0%, transparent 50%),
+    radial-gradient(circle at 85% 90%, #f6c6ff 0%, transparent 55%),
+    linear-gradient(155deg, #fff6ea 0%, #f4f1ff 48%, #e9fbff 100%);
+  --countdown-brightness: 1;
+  --countdown-glow: 0.2;
+  --countdown-scale: 1;
+  --shade-opacity: 0;
+  --vignette-opacity: 0;
+}
+
+.app-shell::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  background: repeating-linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.45) 0px,
+      rgba(255, 255, 255, 0.45) 2px,
+      transparent 2px,
+      transparent 14px
+    ),
+    repeating-linear-gradient(
+      -120deg,
+      rgba(255, 255, 255, 0.35) 0px,
+      rgba(255, 255, 255, 0.35) 2px,
+      transparent 2px,
+      transparent 18px
+    );
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.app-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+      0deg,
+      rgba(20, 16, 40, var(--shade-opacity)) 0%,
+      rgba(20, 16, 40, var(--shade-opacity)) 100%
+    ),
+    radial-gradient(
+      circle at center,
+      rgba(20, 16, 40, 0) 0%,
+      rgba(20, 16, 40, var(--vignette-opacity)) 62%,
+      rgba(20, 16, 40, calc(var(--vignette-opacity) + 0.08)) 100%
+    );
+  pointer-events: none;
+}
+
+.app-shell.phase-60 {
+  --countdown-brightness: 1.05;
+  --countdown-glow: 0.28;
+  --shade-opacity: 0.08;
+  --vignette-opacity: 0.12;
+}
+
+.app-shell.phase-30 {
+  --countdown-brightness: 1.1;
+  --countdown-glow: 0.35;
+  --countdown-scale: 1.04;
+  --shade-opacity: 0.12;
+  --vignette-opacity: 0.18;
+}
+
+.app-shell.phase-10 {
+  --countdown-brightness: 1.18;
+  --countdown-glow: 0.5;
+  --countdown-scale: 1.08;
+  --shade-opacity: 0.18;
+  --vignette-opacity: 0.35;
+}
+
+.main-content {
+  min-height: 100dvh;
+  padding-bottom: calc(var(--panel-height, 190px) + env(safe-area-inset-bottom) + 24px);
+}
+
+.countdown-layer {
+  position: relative;
+  z-index: 20;
+}
+
+.countdown {
+  font-family: var(--font-display);
+  font-size: clamp(4rem, 12vw, 9rem);
+  letter-spacing: 0.05em;
+  text-shadow: 0 20px 45px rgba(23, 15, 48, var(--countdown-glow));
+  filter: brightness(var(--countdown-brightness));
+  transform: scale(var(--countdown-scale));
+  transition: transform 0.4s ease, filter 0.4s ease, text-shadow 0.4s ease;
+}
+
+.app-shell.phase-30 .countdown {
+  animation: countdownPulseSoft 1.6s ease-in-out infinite;
+}
+
+.app-shell.phase-10 .countdown {
+  animation: countdownPulseStrong 0.85s ease-in-out infinite;
+}
+
+.bubble-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.bubble {
+  position: absolute;
+  max-width: min(280px, 70vw);
+  padding: 12px 16px;
+  border-radius: 999px;
+  background: hsl(var(--hue, 35) 90% 92% / 0.88);
+  border: 1px solid rgba(32, 25, 56, 0.08);
+  box-shadow: 0 18px 40px rgba(22, 18, 40, 0.18);
+  backdrop-filter: blur(8px);
+  animation: bubbleFloat 5s ease-in-out forwards;
+  transform-origin: center;
+}
+
+.bubble-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(32, 25, 56, 0.7);
+}
+
+.bubble-text {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #20183a;
+}
+
+.overlay-celebration {
+  animation: celebrationPop 1.5s ease-out forwards;
+  z-index: 30;
+}
+
+@keyframes bubbleFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.92) rotate(var(--tilt, -4deg));
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0px) scale(1) rotate(var(--tilt, -4deg));
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scale(1.05) rotate(calc(var(--tilt, -4deg) + 3deg));
+  }
+}
+
+@keyframes countdownPulseSoft {
+  0%,
+  100% {
+    transform: scale(var(--countdown-scale));
+  }
+  50% {
+    transform: scale(calc(var(--countdown-scale) + 0.02));
+  }
+}
+
+@keyframes countdownPulseStrong {
+  0%,
+  100% {
+    transform: scale(var(--countdown-scale));
+  }
+  50% {
+    transform: scale(calc(var(--countdown-scale) + 0.06));
+  }
+}
+
+@keyframes celebrationPop {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.9);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(0px) scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(1.08);
+  }
+}
+
+.confetti-drift {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 8;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -10%;
+  border-radius: 999px;
+  animation-name: confettiFall;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  filter: blur(0.2px);
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translate3d(0, -10%, 0) rotate(0deg);
+  }
+  100% {
+    transform: translate3d(-10px, 115vh, 0) rotate(220deg);
+  }
+}
+
+.input-panel {
+  width: min(960px, calc(100% - 2rem));
+  background: var(--panel);
+  border-radius: 20px;
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+  padding: 16px;
+}
+
+.panel-field {
+  border-radius: 14px;
+  border: 1px solid rgba(30, 25, 44, 0.12);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.panel-field:focus {
+  border-color: rgba(255, 137, 66, 0.8);
+  box-shadow: 0 0 0 3px rgba(255, 137, 66, 0.2);
+}
+
+.send-button {
+  border-radius: 999px;
+  background: linear-gradient(120deg, #ff7d4f, #ffb564);
+  color: #1c1228;
+  font-weight: 700;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 14px 30px rgba(255, 125, 79, 0.35);
+}
+
+.send-button:disabled {
+  opacity: 0.5;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.send-button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.input-dock {
+  bottom: 0;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+  padding-top: 12px;
+}
+
+.only-mobile {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .input-panel {
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  .bubble {
+    max-width: 75vw;
+  }
+}
+
+@media (max-width: 520px) {
+  .only-mobile {
+    display: inline;
+  }
+}
