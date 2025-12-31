@@ -76,6 +76,7 @@ export default function Home() {
   const initialSpawnTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const randomSpawnTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const spawnLoopStarted = useRef(false);
+  const recentSpawnedRef = useRef<string[]>([]);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef({ width: 0, height: 0 });
   const blessingsRef = useRef<BlessingBubble[]>([]);
@@ -275,8 +276,29 @@ export default function Home() {
     randomSpawnTimeout.current = setTimeout(() => {
       const pool = blessingPoolRef.current;
       if (pool.length > 0 && blessingsRef.current.length < 10) {
-        const row = pool[Math.floor(Math.random() * pool.length)];
-        addBlessing(row, false);
+        const recentQueue = recentSpawnedRef.current;
+        const recentSet = new Set(recentQueue);
+        const recentLimit = 10;
+        let candidate: BlessingRow | undefined;
+
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          const row = pool[Math.floor(Math.random() * pool.length)];
+          if (!recentSet.has(row.id)) {
+            candidate = row;
+            break;
+          }
+        }
+
+        if (!candidate) {
+          candidate = pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        if (candidate && addBlessing(candidate, false)) {
+          recentQueue.push(candidate.id);
+          if (recentQueue.length > recentLimit) {
+            recentQueue.shift();
+          }
+        }
       }
       scheduleRandomSpawn();
     }, delay);
