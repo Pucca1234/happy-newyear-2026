@@ -53,6 +53,7 @@ const randomBetween = (min: number, max: number) =>
 
 export default function Home() {
   const [targetTime, setTargetTime] = useState(BASE_TARGET_TIME);
+  const [targetReady, setTargetReady] = useState(false);
   const [remaining, setRemaining] = useState(() =>
     Math.max(BASE_TARGET_TIME - Date.now(), 0)
   );
@@ -101,10 +102,18 @@ export default function Home() {
     const testValue = Number(params.get("test"));
     setPresenceEnabled(params.get("presence") === "1");
     if (Number.isFinite(testValue) && testValue > 0) {
-      setTargetTime(Date.now() + testValue * 10000);
+      const testTarget = Date.now() + testValue * 10000;
+      setTargetTime(testTarget);
+      setRemaining(Math.max(testTarget - Date.now(), 0));
       setHasCelebrated(false);
       setShowOverlay(false);
+      setShowHappyText(false);
+      setTargetReady(true);
+      return;
     }
+    setTargetTime(BASE_TARGET_TIME);
+    setRemaining(Math.max(BASE_TARGET_TIME - Date.now(), 0));
+    setTargetReady(true);
   }, []);
 
   useEffect(() => {
@@ -338,7 +347,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (remaining > 0 || hasCelebrated) {
+    if (!targetReady || remaining > 0 || hasCelebrated) {
       return;
     }
     setHasCelebrated(true);
@@ -349,12 +358,12 @@ export default function Home() {
   }, [remaining, hasCelebrated, runConfetti]);
 
   useEffect(() => {
-    if (remaining > 0 || showHappyText) {
+    if (!targetReady || remaining > 0 || showHappyText) {
       return;
     }
-    const timer = setTimeout(() => setShowHappyText(true), 10000);
+    const timer = setTimeout(() => setShowHappyText(true), 1000);
     return () => clearTimeout(timer);
-  }, [remaining, showHappyText]);
+  }, [remaining, showHappyText, targetReady]);
 
   useEffect(() => {
     if (!hasConfig) {
